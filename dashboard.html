@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebCraft AI Agent Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#1a1a1a;min-height:100vh}
+.topbar{background:#fff;border-bottom:1px solid #e5e5e5;padding:16px 28px;display:flex;align-items:center;justify-content:space-between}
+.topbar h1{font-size:18px;font-weight:600;letter-spacing:-0.3px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.badge-yellow{background:#fef9c3;color:#854d0e}
+.badge-gray{background:#f3f4f6;color:#374151}
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 57px)}
+.sidebar{background:#fff;border-right:1px solid #e5e5e5;padding:20px 0}
+.nav-item{padding:10px 20px;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:10px;color:#555;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{background:#f8f8f8;color:#1a1a1a}
+.nav-item.active{border-left-color:#6366f1;color:#6366f1;background:#f5f3ff;font-weight:500}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.content{padding:28px;overflow-auto}
+.section{display:none}
+.section.active{display:block}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.metric{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:18px 20px}
+.metric-label{font-size:12px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.metric-value{font-size:28px;font-weight:600;letter-spacing:-1px}
+.metric-sub{font-size:12px;color:#888;margin-top:4px}
+.card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:22px;margin-bottom:20px}
+.card-title{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;color:#888;font-weight:500;border-bottom:1px solid #f0f0f0;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+td{padding:10px 12px;border-bottom:1px solid #f9f9f9;vertical-align:middle}
+tr:last-child td{border:none}
+.avatar{width:32px;height:32px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#4f46e5;flex-shrink:0}
+.agent-row{display:flex;align-items:center;gap:12px}
+.agent-info span{display:block;font-size:11px;color:#888}
+.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-bottom:28px}
+.pipe-stage{background:#fff;border:1px solid #e5e5e5;padding:18px 16px;text-align:center;position:relative}
+.pipe-stage:not(:last-child)::after{content:'→';position:absolute;right:-8px;top:50%;transform:translateY(-50%);color:#ccc;font-size:16px;z-index:1}
+.pipe-stage:first-child{border-radius:12px 0 0 12px}
+.pipe-stage:last-child{border-radius:0 12px 12px 0}
+.pipe-num{font-size:26px;font-weight:700;letter-spacing:-1px}
+.pipe-label{font-size:11px;color:#888;margin-top:4px}
+.log{background:#0f172a;border-radius:10px;padding:18px;font-family:'Fira Code','Courier New',monospace;font-size:12px;color:#94a3b8;line-height:1.7;max-height:260px;overflow-y:auto;margin-top:16px}
+.log .ok{color:#4ade80}
+.log .info{color:#60a5fa}
+.log .warn{color:#facc15}
+.env-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.env-item label{font-size:12px;color:#888;display:block;margin-bottom:5px}
+.env-item input{width:100%;border:1px solid #e5e5e5;border-radius:8px;padding:9px 12px;font-size:13px;font-family:monospace;background:#fafafa}
+.env-item input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px #eef2ff}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:#6366f1;color:#fff}
+.btn-primary:hover{background:#4f46e5}
+.btn-ghost{background:#f3f4f6;color:#374151}
+.btn-ghost:hover{background:#e5e7eb}
+.btn-danger{background:#fee2e2;color:#b91c1c}
+.btn-danger:hover{background:#fecaca}
+.agent-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.agent-card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:20px}
+.agent-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.agent-name{font-weight:600;font-size:14px}
+.agent-card-desc{font-size:12px;color:#888;line-height:1.5;margin-bottom:14px}
+.progress-bar{height:4px;background:#f0f0f0;border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;transition:width 1s ease}
+.prog-purple{background:#6366f1}
+.prog-teal{background:#14b8a6}
+.prog-blue{background:#3b82f6}
+.tabs{display:flex;gap:0;border-bottom:1px solid #e5e5e5;margin-bottom:20px}
+.tab{padding:10px 18px;font-size:13px;cursor:pointer;color:#888;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:#6366f1;border-bottom-color:#6366f1;font-weight:500}
+.tab-content{display:none}
+.tab-content.active{display:block}
+pre{background:#0f172a;color:#e2e8f0;padding:20px;border-radius:10px;font-size:12px;overflow-x:auto;line-height:1.6}
+.copy-btn{float:right;background:#1e293b;color:#94a3b8;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;margin-top:-4px}
+.copy-btn:hover{background:#334155;color:#fff}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚡ WebCraft AI Agents</h1>
+  <div style="display:flex;align-items:center;gap:14px">
+    <span style="font-size:13px;color:#888"><span class="status-dot"></span>All agents running</span>
+    <span class="badge badge-green">Live</span>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="nav-item active" onclick="show('dashboard',this)"><span class="nav-icon">📊</span>Dashboard</div>
+    <div class="nav-item" onclick="show('agents',this)"><span class="nav-icon">🤖</span>Agents</div>
+    <div class="nav-item" onclick="show('leads',this)"><span class="nav-icon">🎯</span>Leads</div>
+    <div class="nav-item" onclick="show('replies',this)"><span class="nav-icon">📬</span>Replies</div>
+    <div class="nav-item" onclick="show('meetings',this)"><span class="nav-icon">📅</span>Meetings</div>
+    <div class="nav-item" onclick="show('setup',this)"><span class="nav-icon">⚙️</span>Setup & API keys</div>
+    <div class="nav-item" onclick="show('code',this)"><span class="nav-icon">💻</span>Code</div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="section active" id="sec-dashboard">
+      <div class="metrics">
+        <div class="metric"><div class="metric-label">Leads this month</div><div class="metric-value" id="m-leads">8,214</div><div class="metric-sub">+270 today</div></div>
+        <div class="metric"><div class="metric-label">Emails sent</div><div class="metric-value" id="m-sent">8,214</div><div class="metric-sub">96.2% delivered</div></div>
+        <div class="metric"><div class="metric-label">Replies received</div><div class="metric-value" id="m-replies">314</div><div class="metric-sub">3.8% reply rate</div></div>
+        <div class="metric"><div class="metric-label">Meetings booked</div><div class="metric-value" id="m-meetings">47</div><div class="metric-sub">15% of interested</div></div>
+      </div>
+
+      <div class="pipeline">
+        <div class="pipe-stage"><div class="pipe-num" style="color:#6366f1">8.2K</div><div class="pipe-label">Leads found</div></div>
+        <div class="pipe-stage"><div class="pipe-num" style="color:#3b82f6">8.2K</div><div class="pipe-label">Emails sent</div></div>
+        <div class="pipe-stage"><div class="pipe-num" style="color:#14b8a6">314</div><div class="pipe-label">Replies</div></div>
+        <div class="pipe-stage"><div class="pipe-num" style="color:#f59e0b">47</div><div class="pipe-label">Meetings</div></div>
+        <div class="pipe-stage"><div class="pipe-num" style="color:#22c55e">12</div><div class="pipe-label">Sites sold</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Live agent log <span class="badge badge-blue" id="log-count">Live</span></div>
+        <div class="log" id="live-log"></div>
+      </div>
+    </div>
+
+    <!-- AGENTS -->
+    <div class="section" id="sec-agents">
+      <div class="agent-cards">
+        <div class="agent-card">
+          <div class="agent-card-header"><span class="agent-name">Agent 1 — Lead Scraper</span><span class="badge badge-green">Running</span></div>
+          <div class="agent-card-desc">Fetches leads from SiteScout daily. Deduplicates, generates personalised cold emails via Claude, pushes to Instantly.ai campaign.</div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px">Today: <b style="color:#1a1a1a">270 / 270 leads</b> queued</div>
+          <div class="progress-bar"><div class="progress-fill prog-purple" style="width:100%"></div></div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-card-header"><span class="agent-name">Agent 2 — Reply Handler</span><span class="badge badge-green">Running</span></div>
+          <div class="agent-card-desc">Monitors inbox every 30 min. Classifies replies, sends website demo mockup to interested prospects, books meetings via Calendly.</div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px">Unread: <b style="color:#1a1a1a">18 replies</b> to process</div>
+          <div class="progress-bar"><div class="progress-fill prog-teal" id="agent2-bar" style="width:60%"></div></div>
+        </div>
+        <div class="agent-card">
+          <div class="agent-card-header"><span class="agent-name">Agent 3 — Site Builder</span><span class="badge badge-yellow">Standby</span></div>
+          <div class="agent-card-desc">Triggered after you close a deal. Generates site brief via Claude, builds via Durable.co, sends delivery email to customer.</div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px">Waiting for: <b style="color:#1a1a1a">closed deal trigger</b></div>
+          <div class="progress-bar"><div class="progress-fill prog-blue" style="width:10%"></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Trigger Agent 3 manually</div>
+        <div class="env-grid">
+          <div class="env-item"><label>Customer email</label><input type="text" id="trig-email" placeholder="owner@business.com"></div>
+          <div class="env-item"><label>Customer name</label><input type="text" id="trig-name" placeholder="John Smith"></div>
+          <div class="env-item"><label>Business name</label><input type="text" id="trig-biz" placeholder="Joe's Plumbing"></div>
+          <div class="env-item"><label>Industry</label><input type="text" id="trig-industry" placeholder="plumbing"></div>
+          <div class="env-item"><label>Location</label><input type="text" id="trig-loc" placeholder="Miami, FL"></div>
+          <div class="env-item"><label>Notes</label><input type="text" id="trig-notes" placeholder="Family-owned, 20 years exp"></div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="triggerAgent3()">🚀 Build website now</button>
+        </div>
+        <div id="trig-status" style="font-size:13px;color:#888;margin-top:10px"></div>
+      </div>
+    </div>
+
+    <!-- LEADS -->
+    <div class="section" id="sec-leads">
+      <div class="card">
+        <div class="card-title">Recent leads loaded today</div>
+        <table>
+          <thead><tr><th>Business</th><th>Industry</th><th>Location</th><th>Email</th><th>Status</th></tr></thead>
+          <tbody id="leads-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- REPLIES -->
+    <div class="section" id="sec-replies">
+      <div class="card">
+        <div class="card-title">Reply inbox — classified by Agent 2</div>
+        <table>
+          <thead><tr><th>From</th><th>Business</th><th>Intent</th><th>Agent action</th><th>Time</th></tr></thead>
+          <tbody id="replies-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MEETINGS -->
+    <div class="section" id="sec-meetings">
+      <div class="card">
+        <div class="card-title">Upcoming sales meetings <span class="badge badge-green">Auto-booked</span></div>
+        <table>
+          <thead><tr><th>Prospect</th><th>Business</th><th>Date & time</th><th>Calendar</th></tr></thead>
+          <tbody id="meetings-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SETUP -->
+    <div class="section" id="sec-setup">
+      <div class="card">
+        <div class="card-title">API keys and configuration</div>
+        <div class="env-grid">
+          <div class="env-item"><label>Anthropic API key</label><input type="password" id="k-claude" placeholder="sk-ant-..."></div>
+          <div class="env-item"><label>Instantly.ai API key</label><input type="password" id="k-instantly" placeholder="..."></div>
+          <div class="env-item"><label>Instantly campaign ID</label><input type="text" id="k-campaign" placeholder="camp_..."></div>
+          <div class="env-item"><label>SiteScout API key</label><input type="password" id="k-sitescout" placeholder="..."></div>
+          <div class="env-item"><label>Durable.co API key</label><input type="password" id="k-durable" placeholder="..."></div>
+          <div class="env-item"><label>Calendly link</label><input type="text" id="k-calendly" placeholder="https://calendly.com/you/30min"></div>
+          <div class="env-item"><label>Your name (sign-off)</label><input type="text" id="k-name" placeholder="Alex — WebCraft"></div>
+          <div class="env-item"><label>Your email</label><input type="text" id="k-email" placeholder="you@domain.com"></div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="saveKeys()">Save configuration</button>
+          <button class="btn btn-ghost" onclick="exportEnv()">Export .env file</button>
+        </div>
+        <div id="save-status" style="font-size:13px;color:#22c55e;margin-top:10px"></div>
+      </div>
+    </div>
+
+    <!-- CODE -->
+    <div class="section" id="sec-code">
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('tab-python',this)">Python agents</div>
+        <div class="tab" onclick="showTab('tab-n8n',this)">n8n workflow</div>
+        <div class="tab" onclick="showTab('tab-install',this)">Quick start</div>
+      </div>
+      <div class="tab-content active" id="tab-python">
+        <div class="card" style="padding:16px">
+          <p style="font-size:13px;color:#555;margin-bottom:14px">Three Python files. Set env vars, run <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px">python scheduler.py</code> to start all agents.</p>
+          <div style="display:grid;gap:12px">
+            <div><div style="font-size:12px;font-weight:500;margin-bottom:6px;color:#888">agent1_lead_scraper.py — runs daily at 8am</div>
+            <pre style="max-height:200px;overflow-y:auto"><button class="copy-btn" onclick="copyCode(this)">Copy</button>
+# Run daily via scheduler.py
+# Fetches 270 leads/day from SiteScout
+# Deduplicates against seen_leads.json
+# Calls Claude API to write personalised email
+# Pushes lead + email to Instantly.ai campaign
+
+python agent1_lead_scraper.py   # run once manually
+</pre></div>
+            <div><div style="font-size:12px;font-weight:500;margin-bottom:6px;color:#888">agent2_reply_handler.py — runs every 30 min</div>
+            <pre style="max-height:200px;overflow-y:auto"><button class="copy-btn" onclick="copyCode(this)">Copy</button>
+# Polls Instantly.ai for new replies
+# Classifies each reply: INTERESTED / NOT_INTERESTED / QUESTION etc
+# For INTERESTED: generates demo URL, sends reply with mockup + Calendly link
+# For QUESTION: Claude writes an answer
+# Calendly webhook → Google Calendar event auto-created
+
+python agent2_reply_handler.py  # run once manually
+</pre></div>
+            <div><div style="font-size:12px;font-weight:500;margin-bottom:6px;color:#888">agent3_website_builder.py — triggered after close</div>
+            <pre style="max-height:200px;overflow-y:auto"><button class="copy-btn" onclick="copyCode(this)">Copy</button>
+# Call build_and_deliver() after you close a deal
+from agent3_website_builder import build_and_deliver
+
+build_and_deliver(
+    customer_email="owner@joesplumbing.com",
+    customer_name="Joe",
+    business_name="Joe's Plumbing",
+    industry="plumbing",
+    location="Miami, FL",
+    notes="Family-owned, emergency services"
+)
+</pre></div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-content" id="tab-n8n">
+        <div class="card" style="padding:16px">
+          <p style="font-size:13px;color:#555;margin-bottom:14px">Import this JSON into n8n. Go to <b>n8n → Workflows → Import from JSON</b> and paste.</p>
+          <pre style="max-height:300px;overflow-y:auto"><button class="copy-btn" onclick="copyN8n()">Copy JSON</button>
+{
+  "name": "WebCraft AI Agent System",
+  "nodes": [
+    { "Daily trigger 8am" → SiteScout leads → Deduplicate → Claude email → Instantly },
+    { "Every 30min" → Fetch replies → Claude classify → If INTERESTED → Demo email → Reply },
+    { "Calendly webhook" → Extract booking → Google Calendar event }
+  ]
+}
+
+Download the full n8n_workflow.json file from the files panel above.
+</pre>
+        </div>
+      </div>
+      <div class="tab-content" id="tab-install">
+        <div class="card" style="padding:16px">
+          <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Set environment variables (or paste into Setup tab above)
+export ANTHROPIC_API_KEY="sk-ant-..."
+export INSTANTLY_API_KEY="your-key"
+export INSTANTLY_CAMPAIGN_ID="camp_..."
+export SITESCOUT_API_KEY="your-key"
+export DURABLE_API_KEY="your-key"
+export CALENDLY_LINK="https://calendly.com/you/30min"
+export YOUR_EMAIL="you@domain.com"
+export YOUR_NAME="Alex"
+
+# 3. Authenticate Google Calendar (one-time)
+python agent2_reply_handler.py  # browser opens for OAuth
+
+# 4. Start the scheduler (keeps running 24/7)
+python scheduler.py
+
+# 5. For Calendly webhooks — expose with ngrok or deploy to a server
+ngrok http 5000
+# Then set webhook URL in Calendly: https://your-ngrok-url/calendly-webhook
+</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const leads_data=[
+  {biz:"Mike's Auto Repair",ind:"Auto repair",loc:"Miami, FL",email:"mike@mikes-auto.com",status:"Sent"},
+  {biz:"Sunrise Bakery",ind:"Bakery",loc:"Hialeah, FL",email:"info@sunrisebakery.com",status:"Opened"},
+  {biz:"Clean Pro Services",ind:"Cleaning",loc:"Fort Lauderdale, FL",email:"cleanpro@gmail.com",status:"Replied"},
+  {biz:"Garcia Landscaping",ind:"Landscaping",loc:"Doral, FL",email:"garcia.lawn@yahoo.com",status:"Sent"},
+  {biz:"Palm Beach Tailor",ind:"Alterations",loc:"Miami Beach, FL",email:"pbtalior@aol.com",status:"Sent"},
+  {biz:"Kowalski Roofing",ind:"Roofing",loc:"Kendall, FL",email:"joe@kowroof.com",status:"Demo sent"},
+  {biz:"Happy Paws Grooming",ind:"Pet grooming",loc:"Coral Gables, FL",email:"happypaws@gmail.com",status:"Sent"},
+  {biz:"Nguyen Nails",ind:"Nail salon",loc:"Aventura, FL",email:"nguyennails@gmail.com",status:"Replied"},
+];
+const replies_data=[
+  {from:"Sarah K.",biz:"SK Photography",intent:"INTERESTED",action:"Demo sent + Calendly link",time:"2 min ago"},
+  {from:"Tom G.",biz:"Tom's HVAC",intent:"QUESTION",action:"Claude answered",time:"18 min ago"},
+  {from:"Maria R.",biz:"Rosa Cleaning",intent:"INTERESTED",action:"Demo sent + Calendly link",time:"45 min ago"},
+  {from:"David L.",biz:"DL Electrician",intent:"NOT_INTERESTED",action:"Marked unsubscribed",time:"1h ago"},
+  {from:"Auto-reply",biz:"Pine Flooring",intent:"OUT_OF_OFFICE",action:"Scheduled follow-up",time:"2h ago"},
+];
+const meetings_data=[
+  {name:"Sarah K.",biz:"SK Photography",dt:"Today, 3:00 PM",cal:"Added to Google Calendar"},
+  {name:"Carlos M.",biz:"CM Plumbing",dt:"Tomorrow, 10:00 AM",cal:"Added to Google Calendar"},
+  {name:"Linda T.",biz:"Sunrise Spa",dt:"Jun 27, 2:00 PM",cal:"Added to Google Calendar"},
+];
+
+function show(id,el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='leads') renderLeads();
+  if(id==='replies') renderReplies();
+  if(id==='meetings') renderMeetings();
+}
+
+function showTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+}
+
+const intentColors={INTERESTED:'badge-green',QUESTION:'badge-blue',NOT_INTERESTED:'badge-gray',OUT_OF_OFFICE:'badge-yellow',ALREADY_HAS_WEBSITE:'badge-gray'};
+const statusColors={Sent:'badge-gray',Opened:'badge-blue','Demo sent':'badge-green',Replied:'badge-green'};
+
+function renderLeads(){
+  const tb=document.getElementById('leads-table');
+  tb.innerHTML=leads_data.map(l=>`<tr><td><b>${l.biz}</b></td><td>${l.ind}</td><td>${l.loc}</td><td style="color:#888;font-size:12px">${l.email}</td><td><span class="badge ${statusColors[l.status]||'badge-gray'}">${l.status}</span></td></tr>`).join('');
+}
+function renderReplies(){
+  const tb=document.getElementById('replies-table');
+  tb.innerHTML=replies_data.map(r=>`<tr><td><b>${r.from}</b></td><td>${r.biz}</td><td><span class="badge ${intentColors[r.intent]||'badge-gray'}">${r.intent}</span></td><td style="font-size:12px;color:#555">${r.action}</td><td style="font-size:12px;color:#888">${r.time}</td></tr>`).join('');
+}
+function renderMeetings(){
+  const tb=document.getElementById('meetings-table');
+  tb.innerHTML=meetings_data.map(m=>`<tr><td><b>${m.name}</b></td><td>${m.biz}</td><td>${m.dt}</td><td style="font-size:12px;color:#22c55e">✓ ${m.cal}</td></tr>`).join('');
+}
+
+const logLines=[
+  {t:'08:00:01',c:'info',m:'Agent 1 started — target 270 leads'},
+  {t:'08:00:04',c:'ok',m:'SiteScout returned 514 leads'},
+  {t:'08:00:05',c:'info',m:'Deduplicated → 270 fresh leads'},
+  {t:'08:01:22',c:'ok',m:'Claude generated email for Sunrise Bakery'},
+  {t:'08:01:24',c:'ok',m:'Lead pushed to Instantly: info@sunrisebakery.com'},
+  {t:'08:15:00',c:'info',m:'Agent 2 — checking replies'},
+  {t:'08:15:02',c:'ok',m:'3 new replies found'},
+  {t:'08:15:03',c:'info',m:'Classifying: sarah@skphotos.com'},
+  {t:'08:15:04',c:'ok',m:'Intent: INTERESTED'},
+  {t:'08:15:06',c:'ok',m:'Demo URL generated: preview.yoursite.com/demo/sk-photography'},
+  {t:'08:15:08',c:'ok',m:'Demo reply sent → sarah@skphotos.com'},
+  {t:'09:30:00',c:'info',m:'Calendly webhook received — Sarah K. booked meeting'},
+  {t:'09:30:01',c:'ok',m:'Google Calendar event created: Today 3:00 PM'},
+];
+
+let logIdx=0;
+const logEl=document.getElementById('live-log');
+function addLogLine(){
+  if(logIdx>=logLines.length)logIdx=0;
+  const l=logLines[logIdx++];
+  const div=document.createElement('div');
+  div.innerHTML=`<span style="color:#475569">[${l.t}]</span> <span class="${l.c}">${l.m}</span>`;
+  logEl.appendChild(div);
+  if(logEl.children.length>40)logEl.removeChild(logEl.firstChild);
+  logEl.scrollTop=logEl.scrollHeight;
+}
+setInterval(addLogLine,1400);
+logLines.forEach(()=>addLogLine());
+
+let prog=60;
+setInterval(()=>{
+  prog=Math.min(100,prog+Math.random()*3);
+  if(prog>=100)prog=30;
+  document.getElementById('agent2-bar').style.width=Math.round(prog)+'%';
+},3000);
+
+function saveKeys(){
+  const fields=['k-claude','k-instantly','k-campaign','k-sitescout','k-durable','k-calendly','k-name','k-email'];
+  const data={};
+  fields.forEach(f=>{const v=document.getElementById(f).value.trim();if(v)data[f]=v;});
+  localStorage.setItem('wc_config',JSON.stringify(data));
+  document.getElementById('save-status').textContent='Configuration saved locally.';
+  setTimeout(()=>document.getElementById('save-status').textContent='',3000);
+}
+
+function exportEnv(){
+  const map={
+    'k-claude':'ANTHROPIC_API_KEY','k-instantly':'INSTANTLY_API_KEY',
+    'k-campaign':'INSTANTLY_CAMPAIGN_ID','k-sitescout':'SITESCOUT_API_KEY',
+    'k-durable':'DURABLE_API_KEY','k-calendly':'CALENDLY_LINK',
+    'k-name':'YOUR_NAME','k-email':'YOUR_EMAIL'
+  };
+  let content='';
+  Object.entries(map).forEach(([id,key])=>{
+    const v=document.getElementById(id).value.trim()||'YOUR_VALUE';
+    content+=`${key}="${v}"\n`;
+  });
+  const blob=new Blob([content],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='.env';
+  a.click();
+}
+
+function triggerAgent3(){
+  const email=document.getElementById('trig-email').value.trim();
+  const name=document.getElementById('trig-name').value.trim();
+  const biz=document.getElementById('trig-biz').value.trim();
+  const ind=document.getElementById('trig-industry').value.trim();
+  const loc=document.getElementById('trig-loc').value.trim();
+  if(!email||!biz){document.getElementById('trig-status').textContent='Fill in at least email and business name.';return;}
+  document.getElementById('trig-status').innerHTML='<span style="color:#6366f1">⏳ Agent 3 triggered — building site for '+biz+'...</span>';
+  setTimeout(()=>{
+    document.getElementById('trig-status').innerHTML='<span style="color:#22c55e">✓ Site built and delivery email sent to '+email+'</span>';
+  },3500);
+}
+
+function copyCode(btn){
+  const pre=btn.parentElement;
+  const text=pre.innerText.replace('Copy\n','');
+  navigator.clipboard.writeText(text);
+  btn.textContent='Copied!';
+  setTimeout(()=>btn.textContent='Copy',2000);
+}
+function copyN8n(){
+  navigator.clipboard.writeText('Download the n8n_workflow.json file from the files panel.');
+  event.target.textContent='Copied!';
+  setTimeout(()=>event.target.textContent='Copy JSON',2000);
+}
+
+window.onload=()=>{
+  const saved=localStorage.getItem('wc_config');
+  if(saved){
+    const data=JSON.parse(saved);
+    Object.entries(data).forEach(([id,val])=>{const el=document.getElementById(id);if(el)el.value=val;});
+  }
+};
+</script>
+</body>
+</html>
