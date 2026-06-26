@@ -16,24 +16,27 @@ YOUR_NAME = os.environ.get("YOUR_NAME", "Thomas")
 
 
 def generate_website_html(business_name, industry, location, notes=""):
-    prompt = f"""You are an expert web designer. Create a complete, professional, beautiful single-page website for a local business.
+    prompt = f"""Create a complete professional website for a local business. Return ONLY valid HTML starting with <!DOCTYPE html>.
 
-Business name: {business_name}
-Industry: {industry}
+Business: {business_name}
+Industry: {industry}  
 Location: {location}
-Additional info: {notes}
+Notes: {notes}
 
-Requirements:
-- Write complete HTML with embedded CSS and no external dependencies
-- Modern, clean design with a hero section, services, about, and contact sections
-- Mobile responsive
-- Professional color scheme appropriate for the industry
-- Include the business name, location, and relevant services
-- Add a contact form section
-- Make it look like it cost $1,000+ to build
-- Use Google Fonts via CDN link only
+STRICT RULES:
+- NO display:none anywhere in the CSS
+- NO visibility:hidden anywhere
+- NO opacity:0 on any element
+- NO JavaScript required to show content
+- Body background must be white (#ffffff)
+- All sections must be visible immediately on page load
+- Use simple straightforward CSS only
+- Include: header with business name, hero section with tagline, services section, about section, contact section with phone and address
+- Mobile responsive using simple media queries
+- Use only web-safe fonts OR a single Google Fonts link
+- Keep CSS simple and reliable
 
-Return ONLY the complete HTML code starting with <!DOCTYPE html>, nothing else."""
+The page must display fully without any JavaScript."""
 
     resp = requests.post(
         "https://api.anthropic.com/v1/messages",
@@ -50,7 +53,15 @@ Return ONLY the complete HTML code starting with <!DOCTYPE html>, nothing else."
         timeout=60
     )
     resp.raise_for_status()
-    return resp.json()["content"][0]["text"].strip()
+    html = resp.json()["content"][0]["text"].strip()
+    # Remove any markdown code fences if Claude adds them
+    if html.startswith("```"):
+        html = html.split("```")[1]
+        if html.startswith("html"):
+            html = html[4:]
+    if html.endswith("```"):
+        html = html[:-3]
+    return html.strip()
 
 
 def deploy_to_netlify(html_content, site_name):
@@ -166,9 +177,9 @@ def build_and_deliver(customer_email, customer_name, business_name, industry, lo
 if __name__ == "__main__":
     build_and_deliver(
         customer_email="owner@example.com",
-        customer_name="John",
-        business_name="Miami Auto Repair",
-        industry="auto repair",
+        customer_name="Thomas",
+        business_name="Kanner Hair Salon",
+        industry="hair salon",
         location="Miami, FL",
-        notes="Family-owned, 15 years experience, all makes and models"
+        notes="Upscale salon, appointments required"
     )
