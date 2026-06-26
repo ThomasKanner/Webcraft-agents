@@ -134,7 +134,7 @@ Return ONLY the email body."""
         },
         json={
             "model": "claude-sonnet-4-6",
-            "max_tokens": 300,
+            "max_tokens": 8000,
             "messages": [{"role": "user", "content": prompt}]
         },
         timeout=30
