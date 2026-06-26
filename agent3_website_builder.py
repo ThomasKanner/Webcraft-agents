@@ -5,6 +5,7 @@ then deploys it automatically to Netlify via API
 """
 
 import os
+import re
 import hashlib
 import requests
 from datetime import datetime
@@ -16,28 +17,34 @@ YOUR_NAME = os.environ.get("YOUR_NAME", "Thomas")
 
 
 def generate_website_html(business_name, industry, location, notes=""):
-    prompt = f"""Create a complete professional website for a local business. Return ONLY valid HTML starting with <!DOCTYPE html>.
+    prompt = f"""Build a one-page website for "{business_name}", a {industry} business in {location}. {notes}
 
-Business: {business_name}
-Industry: {industry}
-Location: {location}
-Notes: {notes}
+Return ONE complete HTML file. Budget your length so the FULL page fits — the body content is the priority, keep the CSS compact.
 
-STRICT RULES:
-- NO display:none anywhere in the CSS
-- NO visibility:hidden anywhere
-- NO opacity:0 on any element
-- NO JavaScript required to show content
-- Body background must be white (#ffffff)
-- All sections must be visible immediately on page load
-- Use simple straightforward CSS only
-- Include: header with business name, hero section with tagline, services section, about section, contact section with phone and address
-- Mobile responsive using simple media queries
-- Use only web-safe fonts OR a single Google Fonts link
-- Keep CSS simple and reliable
-- IMPORTANT: The HTML must be complete with closing </style></head><body>...</body></html> tags
+CRITICAL STRUCTURE (must appear in this order, all tags present):
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>...</title>
+<style>
+/* keep CSS concise - under 150 lines */
+</style>
+</head>
+<body>
+<!-- header, hero, services, about, contact sections with REAL text content -->
+</body>
+</html>
 
-The page must display fully without any JavaScript."""
+HARD RULES:
+- The <style> block MUST be closed with </style> before <body>.
+- The page MUST have a <body> with visible text: business name, a headline, 3-4 services, an about paragraph, and contact info (phone, address, email).
+- NO opacity:0, NO display:none, NO visibility:hidden, NO animations that hide content, NO JavaScript needed to display anything.
+- White or light background, dark text, fully visible on load.
+- Keep CSS compact so the whole document completes. Finish with </body></html>.
+
+Output ONLY the HTML, no explanation, no markdown fences."""
 
     resp = requests.post(
         "https://api.anthropic.com/v1/messages",
@@ -48,19 +55,21 @@ The page must display fully without any JavaScript."""
         },
         json={
             "model": "claude-sonnet-4-6",
-            "max_tokens": 6000,
+            "max_tokens": 8000,
             "messages": [{"role": "user", "content": prompt}]
         },
         timeout=120
     )
     resp.raise_for_status()
     html = resp.json()["content"][0]["text"].strip()
+
     if html.startswith("```"):
-        html = html.split("```")[1]
-        if html.startswith("html"):
-            html = html[4:]
-    if html.endswith("```"):
-        html = html[:-3]
+        html = re.sub(r'^```[a-zA-Z]*\n', '', html)
+        html = re.sub(r'\n```$', '', html)
+
+    if "<body" not in html.lower() or "</html>" not in html.lower():
+        raise ValueError("Generated HTML is incomplete. Retry.")
+
     return html.strip()
 
 
@@ -69,7 +78,6 @@ def deploy_to_netlify(html_content, site_name):
     html_bytes = html_content.encode("utf-8")
     sha1 = hashlib.sha1(html_bytes).hexdigest()
 
-    # Step 1 — create the site
     resp = requests.post(
         "https://api.netlify.com/api/v1/sites",
         headers={
@@ -83,7 +91,6 @@ def deploy_to_netlify(html_content, site_name):
     site_id = resp.json().get("id")
     site_url = resp.json().get("ssl_url") or resp.json().get("url")
 
-    # Step 2 — create deploy with file digest
     resp2 = requests.post(
         f"https://api.netlify.com/api/v1/sites/{site_id}/deploys",
         headers={
@@ -97,7 +104,6 @@ def deploy_to_netlify(html_content, site_name):
     deploy_id = resp2.json().get("id")
     required = resp2.json().get("required", [])
 
-    # Step 3 — upload the HTML file
     if sha1 in required:
         resp3 = requests.put(
             f"https://api.netlify.com/api/v1/deploys/{deploy_id}/files/index.html",
@@ -134,10 +140,10 @@ Return ONLY the email body."""
         },
         json={
             "model": "claude-sonnet-4-6",
-            "max_tokens": 8000,
+            "max_tokens": 500,
             "messages": [{"role": "user", "content": prompt}]
         },
-        timeout=120
+        timeout=60
     )
     body = resp.json()["content"][0]["text"].strip()
 
@@ -178,7 +184,7 @@ if __name__ == "__main__":
     build_and_deliver(
         customer_email="owner@example.com",
         customer_name="Thomas",
-        business_name="Miami Plumbing Pro",
+        business_name="Miami Plumbing Experts",
         industry="plumbing",
         location="Miami, FL",
         notes="Family-owned, emergency services, licensed and insured"
