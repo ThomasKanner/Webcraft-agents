@@ -5,10 +5,7 @@ then deploys it automatically to Netlify via API
 """
 
 import os
-import json
-import base64
-import zipfile
-import tempfile
+import hashlib
 import requests
 from datetime import datetime
 
@@ -57,33 +54,50 @@ Return ONLY the complete HTML code starting with <!DOCTYPE html>, nothing else."
 
 
 def deploy_to_netlify(html_content, site_name):
-    with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as tmp:
-        with zipfile.ZipFile(tmp.name, 'w') as zf:
-            zf.writestr('index.html', html_content)
-        zip_path = tmp.name
-
-    with open(zip_path, 'rb') as f:
-        resp = requests.post(
-            "https://api.netlify.com/api/v1/sites",
-            headers={
-                "Authorization": f"Bearer {NETLIFY_API_KEY}",
-                "Content-Type": "application/zip"
-            },
-            data=f,
-            timeout=60
-        )
-    resp.raise_for_status()
-    data = resp.json()
-    site_id = data.get("id")
-    site_url = data.get("ssl_url") or data.get("url")
-
     slug = site_name.lower().replace(" ", "-").replace("'", "")[:30]
-    requests.patch(
-        f"https://api.netlify.com/api/v1/sites/{site_id}",
-        headers={"Authorization": f"Bearer {NETLIFY_API_KEY}"},
+    html_bytes = html_content.encode("utf-8")
+    sha1 = hashlib.sha1(html_bytes).hexdigest()
+
+    # Step 1 — create the site
+    resp = requests.post(
+        "https://api.netlify.com/api/v1/sites",
+        headers={
+            "Authorization": f"Bearer {NETLIFY_API_KEY}",
+            "Content-Type": "application/json"
+        },
         json={"name": slug},
         timeout=30
     )
+    resp.raise_for_status()
+    site_id = resp.json().get("id")
+    site_url = resp.json().get("ssl_url") or resp.json().get("url")
+
+    # Step 2 — create deploy with file digest
+    resp2 = requests.post(
+        f"https://api.netlify.com/api/v1/sites/{site_id}/deploys",
+        headers={
+            "Authorization": f"Bearer {NETLIFY_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={"files": {"/index.html": sha1}},
+        timeout=30
+    )
+    resp2.raise_for_status()
+    deploy_id = resp2.json().get("id")
+    required = resp2.json().get("required", [])
+
+    # Step 3 — upload the HTML file
+    if sha1 in required:
+        resp3 = requests.put(
+            f"https://api.netlify.com/api/v1/deploys/{deploy_id}/files/index.html",
+            headers={
+                "Authorization": f"Bearer {NETLIFY_API_KEY}",
+                "Content-Type": "text/html; charset=utf-8"
+            },
+            data=html_bytes,
+            timeout=60
+        )
+        resp3.raise_for_status()
 
     return site_url, site_id
 
@@ -153,8 +167,8 @@ if __name__ == "__main__":
     build_and_deliver(
         customer_email="owner@example.com",
         customer_name="John",
-        business_name="Joe's Plumbing",
-        industry="plumbing",
+        business_name="Miami Auto Repair",
+        industry="auto repair",
         location="Miami, FL",
-        notes="Family-owned, 20 years experience, emergency services"
+        notes="Family-owned, 15 years experience, all makes and models"
     )
