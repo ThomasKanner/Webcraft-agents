@@ -51,7 +51,7 @@ def fetch_new_replies():
         "email_type": "received",
         "campaign_id": INSTANTLY_CAMPAIGN_ID,
         "limit": 50,
-        "is_unread": True
+        "is_unread": true
     }
     resp = requests.get(url, headers=get_instantly_headers(), params=params, timeout=30)
     resp.raise_for_status()
