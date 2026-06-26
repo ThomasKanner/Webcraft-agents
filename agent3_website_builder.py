@@ -19,7 +19,7 @@ def generate_website_html(business_name, industry, location, notes=""):
     prompt = f"""Create a complete professional website for a local business. Return ONLY valid HTML starting with <!DOCTYPE html>.
 
 Business: {business_name}
-Industry: {industry}  
+Industry: {industry}
 Location: {location}
 Notes: {notes}
 
@@ -35,6 +35,7 @@ STRICT RULES:
 - Mobile responsive using simple media queries
 - Use only web-safe fonts OR a single Google Fonts link
 - Keep CSS simple and reliable
+- IMPORTANT: The HTML must be complete with closing </style></head><body>...</body></html> tags
 
 The page must display fully without any JavaScript."""
 
@@ -47,14 +48,13 @@ The page must display fully without any JavaScript."""
         },
         json={
             "model": "claude-sonnet-4-6",
-            "max_tokens": 8000,
+            "max_tokens": 6000,
             "messages": [{"role": "user", "content": prompt}]
         },
-        timeout=60
+        timeout=120
     )
     resp.raise_for_status()
     html = resp.json()["content"][0]["text"].strip()
-    # Remove any markdown code fences if Claude adds them
     if html.startswith("```"):
         html = html.split("```")[1]
         if html.startswith("html"):
@@ -137,7 +137,7 @@ Return ONLY the email body."""
             "max_tokens": 8000,
             "messages": [{"role": "user", "content": prompt}]
         },
-        timeout=30
+        timeout=120
     )
     body = resp.json()["content"][0]["text"].strip()
 
@@ -178,8 +178,8 @@ if __name__ == "__main__":
     build_and_deliver(
         customer_email="owner@example.com",
         customer_name="Thomas",
-        business_name="Kanner Hair Salon",
-        industry="hair salon",
+        business_name="Miami Plumbing Pro",
+        industry="plumbing",
         location="Miami, FL",
-        notes="Upscale salon, appointments required"
+        notes="Family-owned, emergency services, licensed and insured"
     )
